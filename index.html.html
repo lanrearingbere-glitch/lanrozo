@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mr Shrimpoo Purchase Control</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f3f6f7; --surface:#ffffff; --ink:#10252b; --muted:#5b6f76; --line:#dbe4e7;
+  --accent:#0b6e7a; --accent-ink:#ffffff; --accent-soft:#dff0f2;
+  --good:#1f7a4d; --good-soft:#dcf1e5; --warn:#a85a00; --warn-soft:#fdecd2; --bad:#b3261e; --bad-soft:#fbe3e1;
+  --shadow:0 12px 40px rgba(16,37,43,.18);
+  --f-display:'Space Grotesk',system-ui,sans-serif; --f-body:'Inter',system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0d1a1e; --surface:#14262b; --ink:#e6f0f2; --muted:#93a9b0; --line:#25393f;
+  --accent:#4fc3cf; --accent-ink:#06191c; --accent-soft:#17383d;
+  --good:#5fd39a; --good-soft:#143a2a; --warn:#f0b35f; --warn-soft:#3d2c12; --bad:#ff8a80; --bad-soft:#40201e;
+  --shadow:0 12px 40px rgba(0,0,0,.5)}}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:48px}
+.wrap{max-width:1180px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.num{font-variant-numeric:tabular-nums}
+header.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 0 0}
+.bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.brand h1{font-size:20px;font-weight:700}
+.brand small{display:block;color:var(--muted);font-size:12px}
+.status{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--good)} .dot.off{background:var(--warn)}
+nav.tabs{display:flex;gap:4px;margin-top:8px;overflow-x:auto}
+nav.tabs a{padding:8px 14px;color:var(--muted);text-decoration:none;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs a[aria-current="page"]{color:var(--accent);border-color:var(--accent)}
+nav.tabs a:hover{color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-top:20px;display:grid;gap:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.kpi .l{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.kpi .v{font:600 26px/1.2 var(--f-display);margin-top:4px}
+.kpi .v small{font:500 12px var(--f-body);color:var(--muted);margin-left:4px}
+.kpi .s{color:var(--muted);font-size:12px}
+.grid2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:20px}
+@media(max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.panel h2{font-size:16px;margin-bottom:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.panel h2 span{font:400 12px var(--f-body);color:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+svg text{fill:var(--muted);font:11px var(--f-body)}
+.rank{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.rank li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:baseline}
+.rank .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank .b{grid-column:1/-1;height:6px;background:var(--accent-soft);border-radius:3px;overflow:hidden}
+.rank .b i{display:block;height:100%;background:var(--accent)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.toolbar label{display:grid;gap:2px;font-size:12px;color:var(--muted)}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;max-width:100%}
+input[type=search]{min-width:200px}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 12px}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.6;cursor:wait}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button.danger.arm{background:var(--bad);color:#fff}
+button.link{border:0;background:none;color:var(--accent);padding:2px 4px}
+.sp{flex:1}
+.tw{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--surface);position:sticky;top:0;white-space:nowrap}
+td.r,th.r{text-align:right}
+tbody tr:hover{background:var(--accent-soft)}
+tbody tr.clk{cursor:pointer}
+tfoot td{font-weight:600;border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.pill.got{background:var(--good-soft);color:var(--good)}
+.pill.pend{background:var(--warn-soft);color:var(--warn)}
+.up{color:var(--bad)} .down{color:var(--good)}
+.muted{color:var(--muted)}
+.empty{text-align:center;padding:40px 16px;display:grid;gap:12px;justify-items:center}
+.empty h2{font-size:20px}
+.empty p{max-width:52ch;margin:0;color:var(--muted)}
+.login{max-width:360px;margin:60px auto 0;display:grid;gap:12px}
+.login label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+.login input{width:100%}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);z-index:21;box-shadow:var(--shadow);overflow-y:auto;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) 16px;display:grid;gap:14px;align-content:start}
+.drawer h2{font-size:18px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fgrid .full{grid-column:1/-1}
+.fgrid label{display:grid;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+.fgrid input,.fgrid select{width:100%}
+.calc{background:var(--accent-soft);border-radius:6px;padding:10px 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px}
+.calc b{display:block;font-size:15px;color:var(--ink)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:6px;z-index:30}
+.err{color:var(--bad);font-size:12px}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:in .18s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.6}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><div class="bar">
+  <div class="brand"><h1>Mr Shrimpoo</h1><small>Purchase control · Salalah · amounts in OMR</small></div>
+  <div class="status"><span class="dot" id="sdot"></span><span id="stxt">Connecting…</span><button class="link" id="signout" hidden>Sign out</button></div>
+</div>
+<nav class="tabs" id="tabs">
+  <a href="#dashboard" data-v="dashboard">Dashboard</a>
+  <a href="#purchases" data-v="purchases">Purchases</a>
+  <a href="#suppliers" data-v="suppliers">Suppliers</a>
+  <a href="#products" data-v="products">Products</a>
+</nav></header>
+<main id="main"></main>
+</div>
+<div id="layer"></div>
+
+<script>
+/* =========================================================
+   1) PUT YOUR SUPABASE DETAILS HERE (Project Settings > API)
+   Use the anon / publishable key, never the service_role key.
+   ========================================================= */
+const SUPABASE_URL = 'https://yeepypokkondtvbgstke.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllZXB5cG9ra29uZHR2YmdzdGtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzMzEwOTIsImV4cCI6MjEwOTkwNzA5Mn0.BUq0M6cxtWFam2uunNEQfDvOQau3HVFfbLhxQJ1KO1w';
+
+/* =========================================================
+   2) OPTIONAL first-time import: replace the next line with your
+   original line:  const SEED = {"purchases":[...],"suppliers":[...]};
+   After you press "Load workbook data" once, you can set it back to null.
+   ========================================================= */
+const SEED = null;
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => (n||0).toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3});
+const money2 = n => (n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dlabel = d => { const [y,m,dd]=d.split('-'); return `${+dd} ${MON[m-1]} ${y}`; };
+const dshort = d => { const [,m,dd]=d.split('-'); return `${+dd} ${MON[m-1]}`; };
+const calc = r => { const sub=r.qty*r.unitCost, vat=sub*r.taxRate; return {sub, vat, total:sub+vat}; };
+const uuid = () => crypto.randomUUID();
+const PENDING = 'Pending Purchase', GOT = 'Received';
+
+const S = { rows:[], suppliers:[], loaded:false, loadErr:null, user:null, view:'dashboard',
+  f:{q:'',sup:'',st:'',from:'',to:''}, supQ:'', prodQ:'', sort:{purchases:['date',-1]} };
+
+const all = () => S.rows;
+const supNames = () => [...new Set([...S.suppliers.map(s=>s.name), ...S.rows.map(r=>r.supplier).filter(Boolean)])].sort();
+
+/* ---------- row mapping (DB snake_case <-> UI camelCase) ---------- */
+const fromDb = r => ({id:r.id, date:r.date, invoice:r.invoice||'', product:r.product, vatIn:r.vat_in||'',
+  qty:Number(r.qty), unitCost:Number(r.unit_cost), taxRate:Number(r.tax_rate), discount:Number(r.discount||0),
+  supplier:r.supplier||'', status:r.status});
+const toDb = r => ({id:r.id, date:r.date, invoice:r.invoice||'', product:r.product, vat_in:r.vatIn||'',
+  qty:r.qty, unit_cost:r.unitCost, tax_rate:r.taxRate, discount:r.discount||0, supplier:r.supplier||'', status:r.status});
+
+/* ---------- data access ---------- */
+async function fetchAll(table, order){
+  const out=[]; const size=1000;
+  for(let from=0;;from+=size){
+    const {data,error} = await sb.from(table).select('*').order(order,{ascending:true}).range(from,from+size-1);
+    if(error) throw error;
+    out.push(...data); if(data.length<size) break;
+  }
+  return out;
+}
+async function loadData(){
+  try{
+    const [p,s] = await Promise.all([fetchAll('purchases','date'), fetchAll('suppliers','name')]);
+    S.rows = p.map(fromDb); S.suppliers = s; S.loadErr=null;
+  }catch(e){ S.loadErr = e.message||'Could not load data'; }
+  S.loaded = true; render();
+}
+const fail = (what,e)=>{ toast(what+': '+(e.message||'error')); loadData(); };
+
+async function ensureSupplier(name){
+  name=(name||'').trim(); if(!name) return;
+  if(S.suppliers.some(s=>s.name.toLowerCase()===name.toLowerCase())) return;
+  const {data,error} = await sb.from('suppliers').upsert({name},{onConflict:'name'}).select().single();
+  if(error) throw error; S.suppliers.push(data);
+}
+async function savePurchase(r){
+  const i = S.rows.findIndex(x=>x.id===r.id);
+  if(i>=0) S.rows[i]=r; else S.rows.push(r);
+  render();
+  try{
+    const {error} = await sb.from('purchases').upsert(toDb(r)); if(error) throw error;
+    await ensureSupplier(r.supplier); render();
+  }catch(e){ fail('Could not save',e); }
+}
+async function deletePurchase(id){
+  S.rows = S.rows.filter(x=>x.id!==id); render();
+  const {error} = await sb.from('purchases').delete().eq('id',id);
+  if(error) fail('Could not delete',error);
+}
+async function saveSupplier(s, oldName){
+  const i=S.suppliers.findIndex(x=>x.id===s.id); if(i>=0) S.suppliers[i]=s; else S.suppliers.push(s);
+  if(oldName && oldName!==s.name) S.rows.forEach(r=>{ if(r.supplier===oldName) r.supplier=s.name; });
+  render();
+  try{
+    const {error} = await sb.from('suppliers').upsert({id:s.id,name:s.name,email:s.email,phone:s.phone,address:s.address});
+    if(error) throw error;
+    if(oldName && oldName!==s.name){
+      const r2 = await sb.from('purchases').update({supplier:s.name}).eq('supplier',oldName); if(r2.error) throw r2.error;
+    }
+  }catch(e){ fail('Could not save supplier',e); }
+}
+async function loadWorkbook(){
+  if(!SEED) return;
+  const btn=$('#seedBtn'); if(btn) btn.disabled=true;
+  try{
+    const sups = SEED.suppliers.map(s=>({name:s.name,email:s.email||'',phone:s.phone||'',address:s.address||''}));
+    let r = await sb.from('suppliers').upsert(sups,{onConflict:'name'}); if(r.error) throw r.error;
+    const prs = SEED.purchases.map(p=>toDb({...p,id:uuid()}));
+    for(let i=0;i<prs.length;i+=200){ r = await sb.from('purchases').insert(prs.slice(i,i+200)); if(r.error) throw r.error; }
+    toast('Workbook data loaded'); await loadData();
+  }catch(e){ toast('Import failed: '+(e.message||'error')); if(btn) btn.disabled=false; }
+}
+
+/* ---------- views ---------- */
+function toast(t){ const el=document.createElement('div'); el.className='toast'; el.setAttribute('role','status'); el.textContent=t; document.body.append(el); setTimeout(()=>el.remove(),3200); }
+function setStatus(){
+  const dot=$('#sdot'), t=$('#stxt');
+  $('#signout').hidden = !S.user;
+  if(!S.user){ dot.className='dot off'; t.textContent='Signed out'; }
+  else if(S.loadErr){ dot.className='dot off'; t.textContent='Could not reach database'; }
+  else { dot.className='dot ok'; t.textContent = S.loaded ? 'Connected to Supabase' : 'Loading…'; }
+}
+function vLogin(){
+  return `<form class="panel login" id="lf"><h2>Sign in</h2>
+    <label>Email<input type="email" id="l_email" required autocomplete="username"></label>
+    <label>Password<input type="password" id="l_pass" required autocomplete="current-password"></label>
+    <div class="err" id="lerr" hidden></div>
+    <button class="primary" type="submit">Sign in</button></form>`;
+}
+function render(){
+  setStatus();
+  document.querySelectorAll('#tabs a').forEach(a=>{ if(a.dataset.v===S.view) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  const m = $('#main');
+  if(!S.user){
+    m.innerHTML = vLogin();
+    $('#lf').addEventListener('submit',async e=>{ e.preventDefault();
+      const {error} = await sb.auth.signInWithPassword({email:$('#l_email').value.trim(),password:$('#l_pass').value});
+      if(error){ const p=$('#lerr'); p.hidden=false; p.textContent=error.message; }
+    });
+    return;
+  }
+  if(!S.loaded){ m.innerHTML='<div class="empty"><p>Loading purchases…</p></div>'; return; }
+  if(S.loadErr){ m.innerHTML=`<div class="panel empty"><h2>Could not load data</h2><p>${esc(S.loadErr)}. Check the URL and key at the top of the script, that supabase-schema.sql has been run, and that you are signed in.</p><button id="retry">Retry</button></div>`; $('#retry').addEventListener('click',loadData); return; }
+  const rows = all();
+  if(!rows.length && S.view!=='suppliers'){
+    m.innerHTML = `<div class="panel empty"><h2>No purchases yet</h2>
+      <p>${SEED?`Your workbook has ${SEED.purchases.length} purchase lines and ${SEED.suppliers.length} suppliers. Load them to start, or add the first purchase by hand.`:'Add the first purchase to start.'}</p>
+      <div class="acts">${SEED?'<button class="primary" id="seedBtn">Load workbook data</button>':''}<button id="addFirst">Add a purchase</button></div></div>`;
+    $('#seedBtn')?.addEventListener('click',loadWorkbook); $('#addFirst').addEventListener('click',()=>openPurchase());
+    return;
+  }
+  m.innerHTML = ({dashboard:vDash,purchases:vPurch,suppliers:vSup,products:vProd}[S.view]||vDash)(rows);
+  wire();
+}
+
+function vDash(rows){
+  const tot = rows.reduce((a,r)=>{const c=calc(r); a.total+=c.total; a.vat+=c.vat; if(r.status===PENDING){a.pend+=c.total;a.pn++} return a},{total:0,vat:0,pend:0,pn:0});
+  const dates = [...new Set(rows.map(r=>r.date))].sort();
+  const inv = new Set(rows.map(r=>r.invoice).filter(Boolean)).size;
+  const sup = new Set(rows.map(r=>r.supplier).filter(Boolean)).size;
+  const byDay = dates.map(d=>{ let g=0,p=0; rows.filter(r=>r.date===d).forEach(r=>{const t=calc(r).total; r.status===PENDING?p+=t:g+=t}); return {d,g,p}; });
+  const bs = {}; rows.forEach(r=>{const k=r.supplier||'(no supplier)'; bs[k]=(bs[k]||0)+calc(r).total});
+  const topSup = Object.entries(bs).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const prods = productStats(rows);
+  const topProd = [...prods].sort((a,b)=>b.spend-a.spend).slice(0,8);
+  const movers = prods.filter(p=>p.chg!==null&&Math.abs(p.chg)>0.0005).sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg)).slice(0,6);
+  const pend = rows.filter(r=>r.status===PENDING).sort((a,b)=>calc(b).total-calc(a).total).slice(0,6);
+  const maxS = topSup[0]?.[1]||1, maxP = topProd[0]?.spend||1;
+  return `
+  <div class="kpis">
+    <div class="kpi"><div class="l">Total purchases</div><div class="v num">${money2(tot.total)}<small>OMR</small></div><div class="s">${dlabel(dates[0])} to ${dlabel(dates.at(-1))}</div></div>
+    <div class="kpi"><div class="l">VAT paid (input)</div><div class="v num">${money2(tot.vat)}<small>OMR</small></div><div class="s">${(tot.vat/((tot.total-tot.vat)||1)*100).toFixed(1)}% of subtotal</div></div>
+    <div class="kpi"><div class="l">Pending purchase</div><div class="v num">${money2(tot.pend)}<small>OMR</small></div><div class="s">${tot.pn} line${tot.pn===1?'':'s'} not yet received</div></div>
+    <div class="kpi"><div class="l">Suppliers used</div><div class="v num">${sup}</div><div class="s">${inv} invoices · ${rows.length} lines</div></div>
+  </div>
+  <div class="grid2">
+    <section class="panel"><h2>Daily spend <span class="legend"><span><i style="background:var(--accent)"></i>Received</span><span><i style="background:var(--warn)"></i>Pending</span></span></h2>${chart(byDay)}</section>
+    <section class="panel"><h2>Spend by supplier <span>OMR</span></h2><ul class="rank">${topSup.map(([n,v])=>`<li><span class="n">${esc(n)}</span><span class="num">${money2(v)}</span><span class="b"><i style="width:${v/maxS*100}%"></i></span></li>`).join('')}</ul></section>
+  </div>
+  <div class="grid2">
+    <section class="panel"><h2>Biggest products <span>OMR</span></h2><ul class="rank">${topProd.map(p=>`<li><span class="n" title="${esc(p.name)}">${esc(p.name)}</span><span class="num">${money2(p.spend)}</span><span class="b"><i style="width:${p.spend/maxP*100}%"></i></span></li>`).join('')}</ul></section>
+    <div style="display:grid;gap:20px;align-content:start;min-width:0">
+      <section class="panel"><h2>Price movers <span>first vs latest unit cost</span></h2>
+        ${movers.length?`<ul class="rank">${movers.map(p=>`<li><span class="n" title="${esc(p.name)}">${esc(p.name)}</span><span class="num ${p.chg>0?'up':'down'}">${p.chg>0?'+':''}${(p.chg*100).toFixed(1)}%</span></li>`).join('')}</ul>`:'<p class="muted" style="margin:0">No product has been bought at two different prices yet.</p>'}</section>
+      <section class="panel"><h2>Waiting to be received <span><a href="#purchases" class="link" data-st="${PENDING}">see all</a></span></h2>
+        ${pend.length?`<ul class="rank">${pend.map(r=>`<li><span class="n" title="${esc(r.product)}">${esc(r.product)}</span><span class="num">${money2(calc(r).total)}</span></li>`).join('')}</ul>`:'<p class="muted" style="margin:0">Everything has been received.</p>'}</section>
+    </div>
+  </div>`;
+}
+function chart(data){
+  const W=640,H=250,L=44,R=8,T=10,B=28; if(!data.length) return '';
+  const mx = Math.max(...data.map(d=>d.g+d.p),1);
+  const steps=[5,10,20,25,50,100,200,250,500,1000,2000,5000]; const step = steps.find(s=>mx/s<=5)||5000; const top=Math.ceil(mx/step)*step;
+  const y=v=>T+(H-T-B)*(1-v/top), bw=(W-L-R)/data.length;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Daily spend, stacked received and pending">`;
+  for(let v=0;v<=top;v+=step) s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`;
+  data.forEach((d,i)=>{ const x=L+i*bw+bw*.18, w=bw*.64, yg=y(d.g), yt=y(d.g+d.p);
+    s+=`<g><title>${dlabel(d.d)}: ${money(d.g+d.p)} OMR (pending ${money(d.p)})</title>`;
+    if(d.g>0) s+=`<rect x="${x}" y="${yg}" width="${w}" height="${y(0)-yg}" fill="var(--accent)"/>`;
+    if(d.p>0) s+=`<rect x="${x}" y="${yt}" width="${w}" height="${yg-yt}" fill="var(--warn)"/>`;
+    s+=`<text x="${x+w/2}" y="${H-10}" text-anchor="middle">${dshort(d.d)}</text></g>`;});
+  return s+'</svg>';
+}
+
+function filtered(){
+  const f=S.f, q=f.q.trim().toLowerCase();
+  let r = all().filter(x=>(!q||[x.product,x.supplier,x.invoice,x.vatIn].some(v=>String(v||'').toLowerCase().includes(q))) && (!f.sup||x.supplier===f.sup) && (!f.st||x.status===f.st) && (!f.from||x.date>=f.from) && (!f.to||x.date<=f.to));
+  const [k,dir]=S.sort.purchases;
+  const val = x=> k==='total'?calc(x).total : x[k];
+  r.sort((a,b)=>{const A=val(a),B=val(b); return (A>B?1:A<B?-1:0)*dir || (a.date<b.date?1:-1)});
+  return r;
+}
+function vPurch(){
+  const r = filtered(), f=S.f; const t=r.reduce((a,x)=>{const c=calc(x);a.sub+=c.sub;a.vat+=c.vat;a.total+=c.total;a.q+=+x.qty;return a},{sub:0,vat:0,total:0,q:0});
+  const th=(k,l,cls='')=>`<th class="${cls}"><button class="link" data-sort="${k}" style="color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">${l}${S.sort.purchases[0]===k?(S.sort.purchases[1]>0?' ▲':' ▼'):''}</button></th>`;
+  return `
+  <div class="toolbar">
+    <label>Search<input type="search" id="fq" placeholder="Product, supplier, invoice" value="${esc(f.q)}"></label>
+    <label>Supplier<select id="fsup"><option value="">All suppliers</option>${supNames().map(n=>`<option ${f.sup===n?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
+    <label>Status<select id="fst"><option value="">All</option><option ${f.st===GOT?'selected':''}>${GOT}</option><option ${f.st===PENDING?'selected':''}>${PENDING}</option></select></label>
+    <label>From<input type="date" id="ffrom" value="${f.from}"></label>
+    <label>To<input type="date" id="fto" value="${f.to}"></label>
+    <button id="fclr">Clear</button><span class="sp"></span>
+    <button id="exp">Export CSV</button>
+    <button class="primary" id="add">Add purchase</button>
+  </div>
+  <div class="muted">${r.length} line${r.length===1?'':'s'} shown</div>
+  <div class="tw"><table><thead><tr>${th('date','Date')}${th('invoice','Invoice')}${th('product','Product')}${th('supplier','Supplier')}${th('qty','Qty','r')}${th('unitCost','Unit cost','r')}<th class="r">VAT</th>${th('total','Total','r')}${th('status','Status')}</tr></thead>
+  <tbody>${r.map(x=>{const c=calc(x);return `<tr class="clk" data-id="${x.id}"><td class="num" style="white-space:nowrap">${dshort(x.date)}</td><td>${esc(x.invoice)}</td><td>${esc(x.product)}</td><td>${esc(x.supplier)}</td><td class="r num">${+x.qty}</td><td class="r num">${money(x.unitCost)}</td><td class="r num">${money(c.vat)}</td><td class="r num">${money(c.total)}</td><td><span class="pill ${x.status===PENDING?'pend':'got'}">${x.status===PENDING?'Pending':'Received'}</span></td></tr>`}).join('')||'<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">No purchases match these filters.</td></tr>'}</tbody>
+  <tfoot><tr><td colspan="4">Totals</td><td class="r num">${+t.q.toFixed(3)}</td><td></td><td class="r num">${money(t.vat)}</td><td class="r num">${money(t.total)}</td><td></td></tr></tfoot></table></div>`;
+}
+
+function productStats(rows){
+  const m = {};
+  rows.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).forEach(r=>{
+    const p = m[r.product] = m[r.product] || {name:r.product,n:0,qty:0,spend:0,first:r.unitCost,last:r.unitCost,sup:r.supplier,lastDate:r.date};
+    p.n++; p.qty+=+r.qty; p.spend+=calc(r).total; p.last=r.unitCost; p.sup=r.supplier; p.lastDate=r.date;
+  });
+  return Object.values(m).map(p=>({...p, chg: p.n>1&&p.first>0 ? p.last/p.first-1 : null}));
+}
+function vProd(rows){
+  const q=S.prodQ.toLowerCase(); const ps=productStats(rows).filter(p=>!q||p.name.toLowerCase().includes(q)).sort((a,b)=>b.spend-a.spend);
+  return `<div class="toolbar"><label>Search<input type="search" id="pq" placeholder="Product name" value="${esc(S.prodQ)}"></label><span class="sp"></span><span class="muted">${ps.length} products</span></div>
+  <div class="tw"><table><thead><tr><th>Product</th><th class="r">Times bought</th><th class="r">Total qty</th><th class="r">Spend (OMR)</th><th class="r">Latest unit cost</th><th class="r">Change</th><th>Last supplier</th></tr></thead><tbody>
+  ${ps.map(p=>`<tr><td>${esc(p.name)}</td><td class="r num">${p.n}</td><td class="r num">${+p.qty.toFixed(3)}</td><td class="r num">${money(p.spend)}</td><td class="r num">${money(p.last)}</td><td class="r num ${p.chg>0.0005?'up':p.chg<-0.0005?'down':'muted'}">${p.chg===null?'–':(p.chg>0?'+':'')+(p.chg*100).toFixed(1)+'%'}</td><td>${esc(p.sup)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function vSup(rows){
+  const q=S.supQ.toLowerCase(); const agg={}; rows.forEach(r=>{const a=agg[r.supplier]=agg[r.supplier]||{qty:0,total:0,n:0,pend:0}; const c=calc(r); a.qty+=+r.qty; a.total+=c.total; a.n++; if(r.status===PENDING)a.pend+=c.total;});
+  const list = S.suppliers.filter(s=>!q||s.name.toLowerCase().includes(q)).sort((a,b)=>(agg[b.name]?.total||0)-(agg[a.name]?.total||0));
+  return `<div class="toolbar"><label>Search<input type="search" id="sq" placeholder="Supplier name" value="${esc(S.supQ)}"></label><span class="sp"></span><button class="primary" id="addSup">Add supplier</button></div>
+  <div class="tw"><table><thead><tr><th>Supplier</th><th>Phone</th><th>Email</th><th>Address</th><th class="r">Lines</th><th class="r">Total (OMR)</th><th class="r">Pending (OMR)</th></tr></thead><tbody>
+  ${list.map(s=>{const a=agg[s.name]||{qty:0,total:0,n:0,pend:0};return `<tr class="clk" data-sid="${s.id}"><td>${esc(s.name)}</td><td>${esc(s.phone)}</td><td>${esc(s.email)}</td><td>${esc(s.address)}</td><td class="r num">${a.n}</td><td class="r num">${money(a.total)}</td><td class="r num">${a.pend?money(a.pend):'–'}</td></tr>`}).join('')}</tbody></table></div>`;
+}
+
+/* ---------- wiring ---------- */
+function wire(){
+  const on=(s,ev,fn)=>{const e=$(s); if(e) e.addEventListener(ev,fn)};
+  on('#fq','input',e=>{S.f.q=e.target.value; keepFocus('#fq')});
+  on('#fsup','change',e=>{S.f.sup=e.target.value;render()});
+  on('#fst','change',e=>{S.f.st=e.target.value;render()});
+  on('#ffrom','change',e=>{S.f.from=e.target.value;render()});
+  on('#fto','change',e=>{S.f.to=e.target.value;render()});
+  on('#fclr','click',()=>{S.f={q:'',sup:'',st:'',from:'',to:''};render()});
+  on('#add','click',()=>openPurchase());
+  on('#addSup','click',()=>openSupplier());
+  on('#pq','input',e=>{S.prodQ=e.target.value; keepFocus('#pq')});
+  on('#sq','input',e=>{S.supQ=e.target.value; keepFocus('#sq')});
+  on('#exp','click',exportCsv);
+  document.querySelectorAll('[data-sort]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.sort,s=S.sort.purchases; S.sort.purchases=[k, s[0]===k?-s[1]:(k==='date'||k==='qty'||k==='total'||k==='unitCost'?-1:1)]; render();}));
+  document.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',()=>openPurchase(tr.dataset.id)));
+  document.querySelectorAll('tr[data-sid]').forEach(tr=>tr.addEventListener('click',()=>openSupplier(tr.dataset.sid)));
+  document.querySelectorAll('a[data-st]').forEach(a=>a.addEventListener('click',()=>{S.f={q:'',sup:'',st:a.dataset.st,from:'',to:''}}));
+}
+function keepFocus(sel){ const pos=$(sel).selectionStart; render(); const e=$(sel); e.focus(); try{e.setSelectionRange(pos,pos)}catch{} }
+
+function exportCsv(){
+  const rows = filtered(); const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const head=['Date','Invoice','Product','VAT_IN','Quantity','Unit cost','Subtotal','Tax rate','Tax amount','Total','Discount','Supplier','Status'];
+  const csv=[head.join(',')].concat(rows.map(r=>{const c=calc(r);return [r.date,r.invoice,r.product,r.vatIn,r.qty,r.unitCost,c.sub.toFixed(4),r.taxRate,c.vat.toFixed(4),c.total.toFixed(4),r.discount,r.supplier,r.status].map(q).join(',')})).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='purchases.csv'; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+/* ---------- drawers ---------- */
+function closeLayer(){ $('#layer').innerHTML=''; }
+function openDrawer(html){ $('#layer').innerHTML=`<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-modal="true">${html}</aside>`; $('#scrim').addEventListener('click',closeLayer); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeLayer(); });
+
+function openPurchase(id){
+  const ex = id ? S.rows.find(x=>x.id===id) : null;
+  const t = new Date(); const today = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  const r = ex ? {...ex} : {id:uuid(),date:today,invoice:'',product:'',vatIn:'',qty:1,unitCost:0,taxRate:0,discount:0,supplier:'',status:GOT};
+  openDrawer(`<h2>${ex?'Edit purchase':'Add purchase'}</h2>
+  <form id="pf" class="fgrid" autocomplete="off">
+    <label>Date<input type="date" id="f_date" required value="${r.date}"></label>
+    <label>Invoice / receipt no<input id="f_invoice" value="${esc(r.invoice)}"></label>
+    <label class="full">Product<input id="f_product" list="dl_prod" required value="${esc(r.product)}"></label>
+    <label class="full">Supplier<input id="f_supplier" list="dl_sup" value="${esc(r.supplier)}"></label>
+    <label>Quantity<input type="number" id="f_qty" step="any" min="0" required value="${r.qty}"></label>
+    <label>Unit cost (OMR)<input type="number" id="f_unit" step="any" min="0" required value="${r.unitCost}"></label>
+    <label>Tax rate (%)<input type="number" id="f_tax" step="any" min="0" value="${+(r.taxRate*100).toFixed(4)}"></label>
+    <label>Discount (OMR)<input type="number" id="f_disc" step="any" min="0" value="${r.discount||0}"></label>
+    <label>VAT_IN no<input id="f_vat" value="${esc(r.vatIn)}"></label>
+    <label>Status<select id="f_status"><option ${r.status===GOT?'selected':''}>${GOT}</option><option ${r.status===PENDING?'selected':''}>${PENDING}</option></select></label>
+    <div class="calc full num"><span>Subtotal<b id="c_sub"></b></span><span>VAT<b id="c_vat"></b></span><span>Total<b id="c_tot"></b></span></div>
+    <div class="err full" id="perr" hidden></div>
+    <div class="acts full"><button class="primary" type="submit">Save</button><button type="button" id="cancel">Close</button><span class="sp"></span>${ex?'<button type="button" class="danger" id="del">Delete</button>':''}</div>
+  </form>
+  <datalist id="dl_prod">${[...new Set(all().map(x=>x.product))].sort().map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
+  <datalist id="dl_sup">${supNames().map(p=>`<option value="${esc(p)}">`).join('')}</datalist>`);
+  const g=k=>$('#f_'+k);
+  const upd=()=>{const c=calc({qty:+g('qty').value||0,unitCost:+g('unit').value||0,taxRate:(+g('tax').value||0)/100}); $('#c_sub').textContent=money(c.sub); $('#c_vat').textContent=money(c.vat); $('#c_tot').textContent=money(c.total)};
+  ['qty','unit','tax'].forEach(k=>g(k).addEventListener('input',upd)); upd();
+  if(!ex) g('product').addEventListener('change',()=>{
+    const last = all().filter(x=>x.product===g('product').value).sort((a,b)=>a.date<b.date?1:-1)[0];
+    if(last){ g('unit').value=last.unitCost; g('tax').value=+(last.taxRate*100).toFixed(4); if(!g('supplier').value) g('supplier').value=last.supplier; upd(); }
+  });
+  $('#cancel').addEventListener('click',closeLayer);
+  const del=$('#del'); if(del) del.addEventListener('click',()=>{ if(!del.classList.contains('arm')){del.classList.add('arm');del.textContent='Confirm delete';return;} closeLayer(); deletePurchase(r.id); });
+  $('#pf').addEventListener('submit',e=>{ e.preventDefault();
+    const nr={id:r.id,date:g('date').value,invoice:g('invoice').value.trim(),product:g('product').value.trim().toUpperCase(),vatIn:g('vat').value.trim(),qty:+g('qty').value,unitCost:+g('unit').value,taxRate:(+g('tax').value||0)/100,discount:+g('disc').value||0,supplier:g('supplier').value.trim(),status:g('status').value};
+    if(!nr.date||!nr.product||!(nr.qty>=0)||!(nr.unitCost>=0)){ const p=$('#perr'); p.hidden=false; p.textContent='Enter a date, a product, a quantity and a unit cost.'; return; }
+    closeLayer(); savePurchase(nr); toast(ex?'Purchase updated':'Purchase added');
+  });
+  g('product').focus();
+}
+function openSupplier(id){
+  const ex = id ? S.suppliers.find(s=>s.id===id) : null; const s = ex?{...ex}:{id:uuid(),name:'',email:'',phone:'',address:''};
+  openDrawer(`<h2>${ex?'Edit supplier':'Add supplier'}</h2><form id="sf" class="fgrid" autocomplete="off">
+    <label class="full">Name<input id="s_name" required value="${esc(s.name)}"></label>
+    <label class="full">Phone<input id="s_phone" value="${esc(s.phone)}"></label>
+    <label class="full">Email<input id="s_email" value="${esc(s.email)}"></label>
+    <label class="full">Address<input id="s_addr" value="${esc(s.address)}"></label>
+    <div class="acts full"><button class="primary" type="submit">Save</button><button type="button" id="cancel">Close</button></div></form>`);
+  $('#cancel').addEventListener('click',closeLayer);
+  $('#sf').addEventListener('submit',e=>{e.preventDefault();
+    const nm=$('#s_name').value.trim(); if(!nm) return;
+    const old=ex?ex.name:null;
+    Object.assign(s,{name:nm,phone:$('#s_phone').value.trim(),email:$('#s_email').value.trim(),address:$('#s_addr').value.trim()});
+    closeLayer(); saveSupplier(s,old); toast('Supplier saved');
+  });
+  $('#s_name').focus();
+}
+
+/* ---------- routing + boot ---------- */
+function route(){ const h=location.hash.slice(1); S.view=['dashboard','purchases','suppliers','products'].includes(h)?h:'dashboard'; render(); }
+addEventListener('hashchange',route);
+$('#signout').addEventListener('click',()=>sb.auth.signOut());
+
+(async function boot(){
+  route();
+  const {data} = await sb.auth.getSession();
+  S.user = data.session?.user || null;
+  if(S.user) await loadData(); else { S.loaded=true; render(); }
+  sb.auth.onAuthStateChange((ev,session)=>{
+    const was=S.user; S.user = session?.user || null;
+    if(S.user && !was){ S.loaded=false; render(); loadData(); }
+    else if(!S.user && was){ S.rows=[]; S.suppliers=[]; render(); }
+  });
+})();
+</script>
+</body>
+</html>
